@@ -4,11 +4,16 @@ database:
 logger:
   level: INFO
 socket:
+  server_key: "defaultkey"  # Add server key
   port: 7349
+runtime:
+  http_key: "defaultkey"  # Must match server_key
+console:
+  port: 7351
 api:
   grpc:
-    port: 7349  # gRPC API
+    port: 7349
   http:
-    port: 7350  # HTTP gateway
-console:
-  port: 7351  # Console HTTP (GRPC auto on 7348)
+    port: 7350
+session:
+  token_expiry_sec: 7200  # 2 hours

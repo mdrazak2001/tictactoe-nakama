@@ -171,15 +171,39 @@ func (m *TicTacToeMatch) updateLeaderboard(ctx context.Context, nk runtime.Nakam
     }
 }
 
-// RPC for Auth (corrected: token from AuthenticateDevice)
+// RPC for Auth (corrected: proper token generation)
 func authenticateDevice(ctx context.Context, logger runtime.Logger, db *sql.DB, nk runtime.NakamaModule, payload string) (string, error) {
+    logger.Info("authenticate_device RPC called with payload: %s", payload)
+    
     var req struct{ DeviceID string `json:"device_id"` }
     if err := json.Unmarshal([]byte(payload), &req); err != nil {
+        logger.Error("Failed to unmarshal payload: %v", err)
         return "", err
     }
-    userId, token, _, err := nk.AuthenticateDevice(ctx, req.DeviceID, "", true)
-    if err != nil { return "", err }
-    resp := map[string]string{"token": token, "user_id": userId}
+    
+    logger.Info("Authenticating device: %s", req.DeviceID)
+    
+    // AuthenticateDevice returns: (userId, username, created, error)
+    userId, username, created, err := nk.AuthenticateDevice(ctx, req.DeviceID, "", true)
+    if err != nil {
+        logger.Error("AuthenticateDevice failed: %v", err)
+        return "", err
+    }
+    
+    logger.Info("Authentication successful for user: %s (username: %s, created: %v)", userId, username, created)
+    
+    // Generate session token for the authenticated user
+    token, _, err := nk.AuthenticateTokenGenerate(userId, username, 0, nil)
+    if err != nil {
+        logger.Error("Token generation failed: %v", err)
+        return "", err
+    }
+    
+    resp := map[string]string{
+        "token": token, 
+        "user_id": userId,
+        "username": username,
+    }
     data, _ := json.Marshal(resp)
     return string(data), nil
 }
@@ -194,7 +218,7 @@ func createLeaderboard(ctx context.Context, logger runtime.Logger, db *sql.DB, n
 
 // InitModule - Registers everything
 func InitModule(ctx context.Context, logger runtime.Logger, db *sql.DB, nk runtime.NakamaModule, initializer runtime.Initializer) error {
-    logger.Info("TicTacToe module loaded!")  // Your log!
+    logger.Info("TicTacToe module loaded!")
 
     if err := initializer.RegisterMatch("tictactoe_match", func(ctx context.Context, logger runtime.Logger, db *sql.DB, nk runtime.NakamaModule) (runtime.Match, error) {
         return &TicTacToeMatch{}, nil
@@ -202,6 +226,7 @@ func InitModule(ctx context.Context, logger runtime.Logger, db *sql.DB, nk runti
         return err
     }
 
+    // Register RPC without authentication requirement
     if err := initializer.RegisterRpc("authenticate_device", authenticateDevice); err != nil {
         return err
     }
@@ -209,6 +234,8 @@ func InitModule(ctx context.Context, logger runtime.Logger, db *sql.DB, nk runti
     if err := initializer.RegisterRpc("create_leaderboard", createLeaderboard); err != nil {
         return err
     }
+
+    logger.Info("All RPCs and matches registered successfully")
 
     return nil
 }
