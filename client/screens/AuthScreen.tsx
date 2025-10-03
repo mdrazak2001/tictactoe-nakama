@@ -7,7 +7,7 @@ import { v4 as uuidv4 } from 'uuid';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { StackNavigationProp } from '@react-navigation/stack';
 
-const NAKAMA_HOST = 'localhost';  // Update to deployed URL later
+const NAKAMA_HOST = '192.168.0.105';  // Update to deployed URL later
 const NAKAMA_PORT = '7350';
 const NAKAMA_HTTP_KEY = 'defaultkey';
 
@@ -31,8 +31,12 @@ export default function AuthScreen({ navigation }: Props) {
   const authenticate = async () => {
     setLoading(true);
     try {
+
       const deviceId = Device.osBuildId || uuidv4();  // Use device ID or generate UUID
       const session: Session = await client.authenticateDevice(deviceId);  // Fixed: Use authenticateDevice (async Promise)
+    //   console.log('Authenticated with userId:', session.user_id);
+    //   console.log('Session token:', session.token);
+
       await AsyncStorage.setItem('session', JSON.stringify({
         token: session.token,
         userId: session.user_id,
