@@ -171,43 +171,6 @@ func (m *TicTacToeMatch) updateLeaderboard(ctx context.Context, nk runtime.Nakam
     }
 }
 
-// RPC for Auth (corrected: proper token generation)
-func authenticateDevice(ctx context.Context, logger runtime.Logger, db *sql.DB, nk runtime.NakamaModule, payload string) (string, error) {
-    logger.Info("authenticate_device RPC called with payload: %s", payload)
-    
-    var req struct{ DeviceID string `json:"device_id"` }
-    if err := json.Unmarshal([]byte(payload), &req); err != nil {
-        logger.Error("Failed to unmarshal payload: %v", err)
-        return "", err
-    }
-    
-    logger.Info("Authenticating device: %s", req.DeviceID)
-    
-    // AuthenticateDevice returns: (userId, username, created, error)
-    userId, username, created, err := nk.AuthenticateDevice(ctx, req.DeviceID, "", true)
-    if err != nil {
-        logger.Error("AuthenticateDevice failed: %v", err)
-        return "", err
-    }
-    
-    logger.Info("Authentication successful for user: %s (username: %s, created: %v)", userId, username, created)
-    
-    // Generate session token for the authenticated user
-    token, _, err := nk.AuthenticateTokenGenerate(userId, username, 0, nil)
-    if err != nil {
-        logger.Error("Token generation failed: %v", err)
-        return "", err
-    }
-    
-    resp := map[string]string{
-        "token": token, 
-        "user_id": userId,
-        "username": username,
-    }
-    data, _ := json.Marshal(resp)
-    return string(data), nil
-}
-
 // RPC for Leaderboard Setup
 func createLeaderboard(ctx context.Context, logger runtime.Logger, db *sql.DB, nk runtime.NakamaModule, payload string) (string, error) {
     id := "tictactoe_leaderboard"
@@ -226,11 +189,7 @@ func InitModule(ctx context.Context, logger runtime.Logger, db *sql.DB, nk runti
         return err
     }
 
-    // Register RPC without authentication requirement
-    if err := initializer.RegisterRpc("authenticate_device", authenticateDevice); err != nil {
-        return err
-    }
-
+    // Only register the leaderboard RPC - authentication is handled by Nakama's built-in endpoint
     if err := initializer.RegisterRpc("create_leaderboard", createLeaderboard); err != nil {
         return err
     }
