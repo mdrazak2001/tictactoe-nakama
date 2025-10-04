@@ -183,18 +183,37 @@ func createLeaderboard(ctx context.Context, logger runtime.Logger, db *sql.DB, n
 func InitModule(ctx context.Context, logger runtime.Logger, db *sql.DB, nk runtime.NakamaModule, initializer runtime.Initializer) error {
     logger.Info("TicTacToe module loaded!")
 
+    // Register the match handler
     if err := initializer.RegisterMatch("tictactoe_match", func(ctx context.Context, logger runtime.Logger, db *sql.DB, nk runtime.NakamaModule) (runtime.Match, error) {
         return &TicTacToeMatch{}, nil
     }); err != nil {
         return err
     }
 
-    // Only register the leaderboard RPC - authentication is handled by Nakama's built-in endpoint
+    // ADD THIS: Create match when matchmaker finds players
+    if err := initializer.RegisterMatchmakerMatched(func(ctx context.Context, logger runtime.Logger, db *sql.DB, nk runtime.NakamaModule, entries []runtime.MatchmakerEntry) (string, error) {
+        logger.Info("Matchmaker matched %d players, creating match", len(entries))
+        
+        // Create the match using your registered handler
+        matchId, err := nk.MatchCreate(ctx, "tictactoe_match", map[string]interface{}{
+            "mode": "casual",
+        })
+        if err != nil {
+            logger.Error("Failed to create match: %v", err)
+            return "", err
+        }
+        
+        logger.Info("Created match: %s", matchId)
+        return matchId, nil
+    }); err != nil {
+        return err
+    }
+
+    // Register leaderboard RPC
     if err := initializer.RegisterRpc("create_leaderboard", createLeaderboard); err != nil {
         return err
     }
 
     logger.Info("All RPCs and matches registered successfully")
-
     return nil
 }
