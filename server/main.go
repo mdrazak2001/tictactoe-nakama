@@ -1,10 +1,10 @@
 package main
 
 import (
-    "context"
-    "database/sql"
-    "encoding/json"
-    "github.com/heroiclabs/nakama-common/runtime"
+	"context"
+	"database/sql"
+	"encoding/json"
+	"github.com/heroiclabs/nakama-common/runtime"
 )
 
 // Your GameState (from your code)
@@ -86,7 +86,7 @@ func (m *TicTacToeMatch) MatchLoop(ctx context.Context, logger runtime.Logger, d
                 if winner := m.checkWinner(gameState.Board); winner != "" {
                     gameState.Winner = winner
                     gameState.GameOver = true
-                    m.updateLeaderboard(ctx, nk, gameState)
+                    m.updateLeaderboard(ctx, nk, gameState, logger)
                 } else if m.isBoardFull(gameState.Board) {
                     gameState.GameOver = true
                 }
@@ -159,7 +159,9 @@ func (m *TicTacToeMatch) broadcastState(dispatcher runtime.MatchDispatcher, stat
     dispatcher.BroadcastMessage(opCode, data, nil, nil, true)
 }
 
-func (m *TicTacToeMatch) updateLeaderboard(ctx context.Context, nk runtime.NakamaModule, state *GameState) {
+func (m *TicTacToeMatch) updateLeaderboard(ctx context.Context, nk runtime.NakamaModule, state *GameState, logger runtime.Logger) {
+    logger.Info("Updating leaderboard for game with winner: %s", state.Winner)
+    
     for userId, symbol := range state.Players {
         score := int64(0)
         if symbol == state.Winner {
@@ -167,16 +169,16 @@ func (m *TicTacToeMatch) updateLeaderboard(ctx context.Context, nk runtime.Nakam
         } else if state.Winner == "" {
             score = 50
         }
-        nk.LeaderboardRecordWrite(ctx, "tictactoe_leaderboard", userId, "", score, 0, nil, nil)
+        
+        logger.Info("Writing leaderboard record: userId=%s, symbol=%s, score=%d", userId, symbol, score)
+        
+        _, err := nk.LeaderboardRecordWrite(ctx, "tictactoe_leaderboard", userId, "", score, 0, nil, nil)
+        if err != nil {
+            logger.Error("Failed to write leaderboard record for %s: %v", userId, err)
+        } else {
+            logger.Info("Successfully wrote leaderboard record for %s", userId)
+        }
     }
-}
-
-// RPC for Leaderboard Setup
-func createLeaderboard(ctx context.Context, logger runtime.Logger, db *sql.DB, nk runtime.NakamaModule, payload string) (string, error) {
-    id := "tictactoe_leaderboard"
-    _, err := db.ExecContext(ctx, `INSERT INTO leaderboard (id, authoritative, sort_order, operator, reset_schedule, metadata) VALUES ($1, $2, $3, $4, $5, '{}') ON CONFLICT (id) DO NOTHING`, id, false, "desc", "best", "0 0 * * 1")
-    if err != nil { return "", err }
-    return `{"status": "success"}`, nil
 }
 
 // InitModule - Registers everything
@@ -209,9 +211,22 @@ func InitModule(ctx context.Context, logger runtime.Logger, db *sql.DB, nk runti
         return err
     }
 
-    // Register leaderboard RPC
-    if err := initializer.RegisterRpc("create_leaderboard", createLeaderboard); err != nil {
-        return err
+    // Create leaderboard if it doesn't exist
+    id := "tictactoe_leaderboard"
+    authoritative := false
+    sortOrder := "desc"
+    operator := "best"
+    resetSchedule := "0 0 * * 1" // Reset weekly on Monday at midnight
+    metadata := map[string]interface{}{
+        "description": "Tic Tac Toe Leaderboard",
+    }
+    
+    err := nk.LeaderboardCreate(ctx, id, authoritative, sortOrder, operator, resetSchedule, metadata, true)
+    if err != nil {
+        // Leaderboard might already exist, which is fine
+        logger.Warn("Leaderboard creation returned error (may already exist): %v", err)
+    } else {
+        logger.Info("Leaderboard created: %s", id)
     }
 
     logger.Info("All RPCs and matches registered successfully")
