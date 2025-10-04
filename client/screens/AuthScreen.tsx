@@ -7,7 +7,7 @@ import { v4 as uuidv4 } from 'uuid';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { StackNavigationProp } from '@react-navigation/stack';
 
-const NAKAMA_HOST = '192.168.0.105';  // Update to deployed URL later
+const NAKAMA_HOST = '10.75.82.153';  // Update to deployed URL later
 const NAKAMA_PORT = '7350';
 const NAKAMA_HTTP_KEY = 'defaultkey';
 
@@ -17,7 +17,7 @@ const client = new Client(NAKAMA_HTTP_KEY, NAKAMA_HOST, NAKAMA_PORT, false);
 type RootStackParamList = {
   Auth: undefined;
   Lobby: undefined;
-  Game: undefined;
+  Game: { matchId: string };
   Leaderboard: undefined;
 };
 
@@ -32,16 +32,22 @@ export default function AuthScreen({ navigation }: Props) {
     setLoading(true);
     try {
 
-      const deviceId = Device.osBuildId || uuidv4();  // Use device ID or generate UUID
-      const session: Session = await client.authenticateDevice(deviceId);  // Fixed: Use authenticateDevice (async Promise)
-    //   console.log('Authenticated with userId:', session.user_id);
-    //   console.log('Session token:', session.token);
+      let rawId = Device.osBuildId ?? Device.modelName ?? uuidv4(); // Raw device ID or UUID
+      const deviceId = String(rawId).replace(/[^\w-]/g, '_').slice(0, 128); // Sanitize: Remove spaces/special chars (Nakama rejects invalid usernames)
 
-      await AsyncStorage.setItem('session', JSON.stringify({
-        token: session.token,
-        userId: session.user_id,
-        expiry: session.expires_at,
-      }));
+      console.log('Raw Device ID:', rawId, '-> sanitized:', deviceId);
+
+      const session: Session = await client.authenticateDevice(deviceId);  // Fixed: Use authenticateDevice (async Promise)
+      console.log('Authenticated with userId:', session.user_id);
+      console.log('Session token:', session.token);
+
+      // await AsyncStorage.setItem('session', JSON.stringify({
+      //   token: session.token,
+      //   userId: session.user_id,
+      //   expiry: session.expires_at,
+      // }));
+      await AsyncStorage.setItem('session_full', JSON.stringify(session));
+
       navigation.navigate('Lobby');
     } catch (error: any) {
       Alert.alert('Auth Failed', error?.message ?? JSON.stringify(error) ?? 'Unknown error');
