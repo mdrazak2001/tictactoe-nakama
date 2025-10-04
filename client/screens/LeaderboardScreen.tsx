@@ -1,17 +1,19 @@
-// screens/LeaderboardScreen.tsx - Top Players List
+// screens/LeaderboardScreen.tsx - Fixed: Use full Session for listLeaderboardRecordsAsync, add limit/expiry, handle 401
 import React, { useState, useEffect } from 'react';
-import { View, Text, FlatList, StyleSheet } from 'react-native';
+import { View, Text, FlatList, StyleSheet, Button } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Client } from '@heroiclabs/nakama-js';
+import { Client, Session } from '@heroiclabs/nakama-js';
+import { LeaderboardRecord } from '@heroiclabs/nakama-js';
+import { getStoredSession } from './nakamaHelpers';
 
-const NAKAMA_HOST = 'localhost';
-const NAKAMA_PORT = 7350;
-const NAKAMA_HTTP_KEY = 'defaultkey';
+const SERVER_KEY = 'defaultkey';
+const HOST = '10.75.82.153'; // your LAN IP (or 10.0.2.2 for emulator)
+const PORT = '7350';
 
-const client = new Client(`http://${NAKAMA_HOST}:${NAKAMA_PORT}`, NAKAMA_HTTP_KEY, false, NAKAMA_PORT);
+const client = new Client(SERVER_KEY, HOST, PORT, false);
 
-export default function LeaderboardScreen({ navigation }) {
-  const [records, setRecords] = useState([]);
+export default function LeaderboardScreen({ navigation }: any) {
+  const [records, setRecords] = useState<LeaderboardRecord[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -20,10 +22,12 @@ export default function LeaderboardScreen({ navigation }) {
 
   const loadLeaderboard = async () => {
     try {
-      const stored = await AsyncStorage.getItem('session');
-      if (stored) {
-        const sess = JSON.parse(stored);
-        const result = await client.listLeaderboardRecordsAsync(sess.token, "tictactoe_leaderboard", 10);
+      const session: Session | null = await getStoredSession();
+      console.log('Stored session:', session);
+      if (session) {
+        // Use full Session (with token)
+        const result = await client.listLeaderboardRecords(session, "tictactoe_leaderboard");
+        console.log('Leaderboard result:', result.records?.length || 0, 'records');
         setRecords(result.records || []);
       }
     } catch (error) {
@@ -32,10 +36,10 @@ export default function LeaderboardScreen({ navigation }) {
     setLoading(false);
   };
 
-  const renderRecord = ({ item }) => (
+  const renderRecord = ({ item, index }: { item: LeaderboardRecord; index: number }) => (
     <View style={styles.record}>
-      <Text style={styles.rank}>{item.rank}</Text>
-      <Text style={styles.username}>{item.username || item.ownerId}</Text>
+      <Text style={styles.rank}>{item.rank || index + 1}</Text>
+      <Text style={styles.username}>{item.username || item.owner_id}</Text>
       <Text style={styles.score}>{item.score}</Text>
     </View>
   );
@@ -45,12 +49,16 @@ export default function LeaderboardScreen({ navigation }) {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Tic-Tac-Toe Leaderboard</Text>
-      <FlatList
-        data={records}
-        keyExtractor={(item) => item.ownerId}
-        renderItem={renderRecord}
-        style={styles.list}
-      />
+      {records.length === 0 ? (
+        <Text style={styles.empty}>No records yet. Play some games!</Text>
+      ) : (
+        <FlatList
+          data={records}
+          keyExtractor={(item, index) => item.owner_id ?? item.username ?? index.toString()}
+          renderItem={renderRecord}
+          style={styles.list}
+        />
+      )}
       <Button title="Back to Lobby" onPress={() => navigation.navigate('Lobby')} />
     </View>
   );
@@ -66,6 +74,11 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     textAlign: 'center',
     marginBottom: 20,
+  },
+  empty: {
+    textAlign: 'center',
+    color: 'gray',
+    marginTop: 20,
   },
   list: {
     flex: 1,

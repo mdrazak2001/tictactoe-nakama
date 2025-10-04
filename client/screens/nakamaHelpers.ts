@@ -19,7 +19,16 @@ export function getSocket(): Socket | null {
 export async function getStoredSession(): Promise<Session | null> {
   const raw = await AsyncStorage.getItem('session_full');
   if (!raw) return null;
-  return JSON.parse(raw) as Session;
+  
+  const sessionData = JSON.parse(raw);
+  
+  // Restore the Session instance with its methods
+  const session = Session.restore(
+    sessionData.token,
+    sessionData.refresh_token
+  );
+  
+  return session;
 }
 
 export async function createSocketAndConnect(session: Session) {
