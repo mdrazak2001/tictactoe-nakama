@@ -21,7 +21,7 @@ export default function App() {
         <Stack.Navigator initialRouteName="Auth">
           <Stack.Screen name="Auth" component={AuthScreen} options={{ title: 'Login' }} />
           <Stack.Screen name="Lobby" component={LobbyScreen} options={{ title: 'Lobby' }} />
-          {/* <Stack.Screen name="Game" component={GameScreen} options={{ title: 'Game' }} /> */}
+          <Stack.Screen name="Game" component={GameScreen} options={{ title: 'Game' }} />
           {/* <Stack.Screen name="Leaderboard" component={LeaderboardScreen} options={{ title: 'Leaderboard' }} /> */}
         </Stack.Navigator>
       </NavigationContainer>
