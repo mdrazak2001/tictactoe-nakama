@@ -1,6 +1,7 @@
 // screens/LobbyScreen.tsx
 import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, Button, StyleSheet, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Alert, ActivityIndicator } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { getStoredSession, createSocketAndConnect, findMatch, joinMatch, removeMatchmaker } from './nakamaHelpers';
 import type { Socket, Session, MatchmakerTicket } from '@heroiclabs/nakama-js';
@@ -18,22 +19,27 @@ type Props = {
 
 export default function LobbyScreen({ navigation }: Props) {
   const [loading, setLoading] = useState(false);
-  const [ticketInfo, setTicketInfo] = useState<string | null>(null);
+  const [username, setUsername] = useState('');
   const socketRef = useRef<Socket | null>(null);
   const ticketRef = useRef<MatchmakerTicket | null>(null);
 
   useEffect(() => {
+    loadUsername();
     return () => {
-      // cleanup on unmount: optionally remove matchmaker / disconnect socket
       (async () => {
         if (socketRef.current && ticketRef.current) {
           await removeMatchmaker(socketRef.current, ticketRef.current);
         }
-        // keep socket connected if you want to reuse; otherwise disconnect:
-        // socketRef.current?.disconnect();
       })();
     };
   }, []);
+
+  const loadUsername = async () => {
+    const session = await getStoredSession();
+    if (session?.username) {
+      setUsername(session.username);
+    }
+  };
 
   const joinMatchFlow = async () => {
     setLoading(true);
@@ -45,24 +51,19 @@ export default function LobbyScreen({ navigation }: Props) {
         return;
       }
 
-      // ensure socket is created + connected and attach handlers BEFORE findMatch
       let sock = socketRef.current;
       if (!sock) {
         sock = await createSocketAndConnect(session);
         socketRef.current = sock;
       }
 
-      // Attach handlers (safe to re-assign; refer to same sock ref)
       sock.onmatchmakermatched = async (mm: any) => {
         console.log('[Lobby] onmatchmakermatched', mm);
         try {
           const matchId = mm.match_id;
           const token = mm.token;
-          // join the match first (server-authoritative)
           await joinMatch(sock!, matchId, token);
-          // clear ticket & loading before navigation
           ticketRef.current = null;
-          setTicketInfo(null);
           setLoading(false);
           navigation.navigate('Game', { matchId });
         } catch (err) {
@@ -72,18 +73,14 @@ export default function LobbyScreen({ navigation }: Props) {
         }
       };
 
-      // attach matchdata for debugging (board updates, etc.)
       sock.onmatchdata = (m: any) => {
         const text = m.data ? new TextDecoder().decode(m.data) : null;
         console.log('[Lobby] onmatchdata', m.op_code, text);
       };
 
-      // Now add to matchmaker
       const ticket = await findMatch(sock, 'casual');
       ticketRef.current = ticket;
-      setTicketInfo(JSON.stringify(ticket));
       console.log('[Lobby] matchmaker ticket:', ticket);
-      // keep loading true until matched or canceled
     } catch (err) {
       console.error('[Lobby] joinMatchFlow error', err);
       Alert.alert('Matchmaking Error', String(err));
@@ -98,24 +95,154 @@ export default function LobbyScreen({ navigation }: Props) {
     if (sock && ticket) {
       await removeMatchmaker(sock, ticket);
       ticketRef.current = null;
-      setTicketInfo(null);
     }
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Lobby</Text>
-      <Button title={loading ? 'Finding Match...' : 'Find Match'} onPress={joinMatchFlow} disabled={loading} />
-      <View style={{ marginTop: 12 }}>
-        <Text>Ticket: {ticketInfo ?? 'none'}</Text>
+    <LinearGradient colors={['#667eea', '#764ba2']} style={styles.gradient}>
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <Text style={styles.title}>Tic-Tac-Toe</Text>
+          <Text style={styles.subtitle}>Welcome, {username}!</Text>
+        </View>
+
+        <View style={styles.content}>
+          <View style={styles.card}>
+            {loading ? (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color="#667eea" />
+                <Text style={styles.loadingText}>Finding opponent...</Text>
+                <TouchableOpacity style={styles.cancelButton} onPress={cancelMatchmaking}>
+                  <Text style={styles.cancelButtonText}>Cancel</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <>
+                <TouchableOpacity style={styles.playButton} onPress={joinMatchFlow}>
+                  <LinearGradient
+                    colors={['#667eea', '#764ba2']}
+                    style={styles.playButtonGradient}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                  >
+                    <Text style={styles.playButtonText}>Find Match</Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.leaderboardButton}
+                  onPress={() => navigation.navigate('Leaderboard')}
+                >
+                  <Text style={styles.leaderboardButtonText}>Leaderboard</Text>
+                </TouchableOpacity>
+              </>
+            )}
+          </View>
+        </View>
+
+        <View style={styles.footer}>
+          <Text style={styles.footerText}>Ready to play?</Text>
+        </View>
       </View>
-      {loading && <Button title="Cancel" onPress={cancelMatchmaking} />}
-      <Button title="Leaderboard" onPress={() => navigation.navigate('Leaderboard')} />
-    </View>
+    </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 },
-  title: { fontSize: 24, fontWeight: 'bold', marginBottom: 20 },
+  gradient: {
+    flex: 1,
+  },
+  container: {
+    flex: 1,
+    padding: 20,
+    justifyContent: 'space-between',
+  },
+  header: {
+    marginTop: 60,
+    alignItems: 'center',
+  },
+  title: {
+    fontSize: 48,
+    fontWeight: 'bold',
+    color: '#fff',
+    textShadowColor: 'rgba(0, 0, 0, 0.3)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 4,
+  },
+  subtitle: {
+    fontSize: 18,
+    color: 'rgba(255, 255, 255, 0.9)',
+    marginTop: 8,
+  },
+  content: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  card: {
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    padding: 30,
+    width: '100%',
+    maxWidth: 400,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.3,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  loadingContainer: {
+    alignItems: 'center',
+    paddingVertical: 20,
+  },
+  loadingText: {
+    marginTop: 15,
+    fontSize: 16,
+    color: '#666',
+    marginBottom: 20,
+  },
+  playButton: {
+    marginBottom: 15,
+    borderRadius: 15,
+    overflow: 'hidden',
+  },
+  playButtonGradient: {
+    paddingVertical: 18,
+    alignItems: 'center',
+  },
+  playButtonText: {
+    color: '#fff',
+    fontSize: 20,
+    fontWeight: 'bold',
+  },
+  leaderboardButton: {
+    backgroundColor: '#f0f0f0',
+    paddingVertical: 18,
+    borderRadius: 15,
+    alignItems: 'center',
+  },
+  leaderboardButtonText: {
+    color: '#667eea',
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  cancelButton: {
+    backgroundColor: '#ff6b6b',
+    paddingHorizontal: 30,
+    paddingVertical: 12,
+    borderRadius: 10,
+  },
+  cancelButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  footer: {
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  footerText: {
+    color: 'rgba(255, 255, 255, 0.7)',
+    fontSize: 14,
+  },
 });
