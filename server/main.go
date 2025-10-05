@@ -8,7 +8,6 @@ import (
 	"github.com/heroiclabs/nakama-common/runtime"
 )
 
-// Your GameState (from your code)
 type GameState struct {
 	Board       [9]string         `json:"board"`
 	CurrentTurn string            `json:"currentTurn"`
@@ -17,7 +16,7 @@ type GameState struct {
 	GameOver    bool              `json:"gameOver"`
 }
 
-// Your Match Handler
+
 type TicTacToeMatch struct{}
 
 func (m *TicTacToeMatch) MatchInit(ctx context.Context, logger runtime.Logger, db *sql.DB, nk runtime.NakamaModule, params map[string]interface{}) (interface{}, int, string) {
@@ -124,7 +123,7 @@ func (m *TicTacToeMatch) MatchSignal(ctx context.Context, logger runtime.Logger,
 	return state, ""
 }
 
-// Helpers (your code)
+// Helpers
 func (m *TicTacToeMatch) isValidMove(state *GameState, userId string, position int) bool {
 	return state.CurrentTurn == userId && position >= 0 && position < 9 && state.Board[position] == "" && !state.GameOver
 }
@@ -219,7 +218,6 @@ func (m *TicTacToeMatch) updateLeaderboard(ctx context.Context, nk runtime.Nakam
 	}
 }
 
-// main.go - Update InitModule
 func InitModule(ctx context.Context, logger runtime.Logger, db *sql.DB, nk runtime.NakamaModule, initializer runtime.Initializer) error {
 	logger.Info("TicTacToe module loaded!")
 
