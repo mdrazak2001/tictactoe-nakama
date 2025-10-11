@@ -4,7 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { MatchData, MatchmakerTicket } from '@heroiclabs/nakama-js';
 
 const SERVER_KEY = 'defaultkey';
-const HOST = '192.168.0.105'; // your LAN IP (or 10.0.2.2 for emulator)
+const HOST = '192.168.0.109'; // your LAN IP (or 10.0.2.2 for emulator)
 const PORT = '7350';
 
 const client = new Client(SERVER_KEY, HOST, PORT, false);
