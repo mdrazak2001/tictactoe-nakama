@@ -8,7 +8,7 @@ import { v4 as uuidv4 } from 'uuid';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { StackNavigationProp } from '@react-navigation/stack';
 
-const NAKAMA_HOST = '192.168.0.105';
+const NAKAMA_HOST = '192.168.0.109';
 const NAKAMA_PORT = '7350';
 const NAKAMA_HTTP_KEY = 'defaultkey';
 
@@ -30,6 +30,10 @@ export default function AuthScreen({ navigation }: Props) {
   const [username, setUsername] = useState('');
 
   const authenticate = async () => {
+
+
+
+
     if (!username.trim()) {
       Alert.alert('Username Required', 'Please enter a username');
       return;

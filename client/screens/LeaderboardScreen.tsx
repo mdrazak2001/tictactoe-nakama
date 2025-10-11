@@ -7,7 +7,7 @@ import { LeaderboardRecord } from '@heroiclabs/nakama-js';
 import { getStoredSession } from './nakamaHelpers';
 
 const SERVER_KEY = 'defaultkey';
-const HOST = '192.168.0.105';
+const HOST = '192.168.0.109';
 const PORT = '7350';
 
 const client = new Client(SERVER_KEY, HOST, PORT, false);
@@ -35,6 +35,7 @@ export default function LeaderboardScreen({ navigation }: any) {
         );
         
         console.log('Leaderboard result:', result.records?.length || 0, 'records');
+        console.log('Leaderboard Records:', result.records);
 
         const recordsWithUsernames = await Promise.all(
           (result.records || []).map(async (record) => {
@@ -90,9 +91,9 @@ export default function LeaderboardScreen({ navigation }: any) {
         <View style={styles.playerInfo}>
           <Text style={styles.username}>{item.username || 'Unknown'}</Text>
           <View style={styles.statsRow}>
-            <Text style={styles.statLabel}>{item.subscore} wins</Text>
+            <Text style={styles.statLabel}>{item.score} wins</Text>
             <Text style={styles.statSeparator}>•</Text>
-            <Text style={styles.statLabel}>{item.metadata?.losses || 0} losses</Text>
+            <Text style={styles.statLabel}>{item.subscore || 0} losses</Text>
           </View>
         </View>
         
