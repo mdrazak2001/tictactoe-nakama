@@ -16,7 +16,6 @@ type GameState struct {
 	GameOver    bool              `json:"gameOver"`
 }
 
-
 type TicTacToeMatch struct{}
 
 func (m *TicTacToeMatch) MatchInit(ctx context.Context, logger runtime.Logger, db *sql.DB, nk runtime.NakamaModule, params map[string]interface{}) (interface{}, int, string) {
@@ -174,37 +173,37 @@ func (m *TicTacToeMatch) updateLeaderboard(ctx context.Context, nk runtime.Nakam
 	logger.Info("Updating leaderboard for game with winner symbol: %s, winner userId: %s", state.Winner, winnerUserId)
 
 	for userId := range state.Players {
-		var score int64
-		var subscore int64
+		var score int64    // for win count
+		var subscore int64 // for loss count
 		var metadata map[string]interface{}
 
 		if userId == winnerUserId {
 			// Winner
-			score = 3    // 3 points for a win
-			subscore = 1 // 1 win recorded
-			metadata = map[string]interface{}{
-				"wins":   1,
-				"losses": 0,
-				"draws":  0,
-			}
+			score = 1 // 1 win
+			subscore = 0
+			// metadata = map[string]interface{}{
+			// 	"wins":   1,
+			// 	"losses": 0,
+			// 	"draws":  0,
+			// }
 		} else if state.Winner == "" {
 			// Draw
-			score = 1    // 1 point for a draw
-			subscore = 0 // 0 wins
-			metadata = map[string]interface{}{
-				"wins":   0,
-				"losses": 0,
-				"draws":  1,
-			}
+			score = 0
+			subscore = 0
+			// metadata = map[string]interface{}{
+			// 	"wins":   0,
+			// 	"losses": 0,
+			// 	"draws":  1,
+			// }
 		} else {
 			// Loss - still give 1 point to ensure record exists
-			score = 0    // 0 points for a loss
-			subscore = 0 // 0 wins
-			metadata = map[string]interface{}{
-				"wins":   0,
-				"losses": 1,
-				"draws":  0,
-			}
+			score = 0
+			subscore = 1 // 1 loss
+			// metadata = map[string]interface{}{
+			// 	"wins":   0,
+			// 	"losses": 1,
+			// 	"draws":  0,
+			// }
 		}
 
 		logger.Info("Writing leaderboard record: userId=%s, score=%d, subscore=%d", userId, score, subscore)
